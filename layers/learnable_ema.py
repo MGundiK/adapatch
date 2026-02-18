@@ -67,9 +67,13 @@ class LearnableEMA(nn.Module):
         # (1-alpha)^power for each channel: (T, C) in float64
         decay = one_minus_alpha.unsqueeze(0).pow(powers_rev.unsqueeze(1))
         
-        # Weights: first element keeps full decay, rest get alpha multiplier
-        weights = decay.clone()
-        weights[1:] = weights[1:] * alpha.unsqueeze(0)
+        # Weights: w_0 = (1-alpha)^{T-1}, w_t = alpha * (1-alpha)^{T-1-t} for t>=1
+        # Build alpha multiplier mask: [1, alpha, alpha, ..., alpha] without in-place ops
+        alpha_mult = torch.cat([
+            torch.ones(1, C, dtype=torch.float64, device=x.device),
+            alpha.unsqueeze(0).expand(T - 1, -1)
+        ], dim=0)  # (T, C)
+        weights = decay * alpha_mult  # (T, C) — no in-place ops
         
         # Apply: cumsum(x_float64 * weights) / decay, then back to float32
         x_d = x.double()
