@@ -52,27 +52,32 @@ class LearnableEMA(nn.Module):
         """
         Vectorized EMA using cumulative sum (matches xPatch's optimized impl).
         s_t = alpha * x_t + (1-alpha) * s_{t-1}, s_0 = x_0
+        
+        CRITICAL: Uses float64 for weight computation to avoid underflow.
+        (1-alpha)^T underflows in float32 for T>150 with typical alpha values.
+        xPatch uses the same float64 trick in their EMA implementation.
         """
         B, T, C = x.shape
-        alpha = self.alpha  # (C,)
-        one_minus_alpha = 1.0 - alpha  # (C,)
+        alpha = self.alpha.double()              # (C,) in float64
+        one_minus_alpha = 1.0 - alpha            # (C,)
         
-        # powers_rev: [T-1, T-2, ..., 0]
-        powers_rev = torch.arange(T - 1, -1, -1, dtype=torch.float32, device=x.device)
+        # powers_rev: [T-1, T-2, ..., 0] in float64
+        powers_rev = torch.arange(T - 1, -1, -1, dtype=torch.float64, device=x.device)
         
-        # (1-alpha)^power for each channel: (T, C)
+        # (1-alpha)^power for each channel: (T, C) in float64
         decay = one_minus_alpha.unsqueeze(0).pow(powers_rev.unsqueeze(1))
         
         # Weights: first element keeps full decay, rest get alpha multiplier
         weights = decay.clone()
         weights[1:] = weights[1:] * alpha.unsqueeze(0)
         
-        # Apply: cumsum(x * weights) / decay
-        weighted = x * weights.unsqueeze(0)       # (B, T, C)
-        cumulative = torch.cumsum(weighted, dim=1)  # (B, T, C)
-        trend = cumulative / decay.unsqueeze(0)     # (B, T, C)
+        # Apply: cumsum(x_float64 * weights) / decay, then back to float32
+        x_d = x.double()
+        weighted = x_d * weights.unsqueeze(0)       # (B, T, C) float64
+        cumulative = torch.cumsum(weighted, dim=1)   # (B, T, C) float64
+        trend = cumulative / decay.unsqueeze(0)      # (B, T, C) float64
         
-        return trend
+        return trend.float()  # back to float32
     
     def _forward_scan(self, x):
         """Sequential scan fallback for very long sequences."""
