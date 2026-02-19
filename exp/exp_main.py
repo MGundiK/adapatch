@@ -40,10 +40,14 @@ class Exp_Main(Exp_Basic):
         return data_set, data_loader
 
     def _select_optimizer(self):
-        # Separate param groups: alpha_raw gets a much higher LR
-        # so the decomposition can actually adapt per-variable.
-        # Default base_lr=0.0005 → alpha gets 0.0005*50 = 0.025
+        # Separate param groups: alpha_raw gets a higher LR for adaptation.
+        # Use a multiplier but CAP at an absolute max to prevent instability
+        # when base_lr is high (e.g., Traffic lr=0.005 × 50 = 0.25 → NaN).
         alpha_lr_mult = getattr(self.args, 'alpha_lr_mult', 50)
+        alpha_lr_max = getattr(self.args, 'alpha_lr_max', 0.025)
+        
+        alpha_lr = min(self.args.learning_rate * alpha_lr_mult, alpha_lr_max)
+        alpha_scale = alpha_lr / (self.args.learning_rate + 1e-12)
         
         # Find alpha_raw parameters
         alpha_params = []
@@ -56,14 +60,15 @@ class Exp_Main(Exp_Basic):
         
         param_groups = [
             {'params': other_params, 'lr': self.args.learning_rate, 'lr_scale': 1.0},
-            {'params': alpha_params, 'lr': self.args.learning_rate * alpha_lr_mult,
-             'lr_scale': alpha_lr_mult, 'weight_decay': 0.0},
+            {'params': alpha_params, 'lr': alpha_lr,
+             'lr_scale': alpha_scale, 'weight_decay': 0.0},
         ]
         
         n_alpha = sum(p.numel() for p in alpha_params)
         n_other = sum(p.numel() for p in other_params)
         print(f"Optimizer: {n_other:,} params @ lr={self.args.learning_rate}, "
-              f"{n_alpha} alpha params @ lr={self.args.learning_rate * alpha_lr_mult}")
+              f"{n_alpha} alpha params @ lr={alpha_lr} "
+              f"(mult={alpha_lr_mult}, capped at {alpha_lr_max})")
         
         return optim.AdamW(param_groups)
 
