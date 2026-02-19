@@ -53,8 +53,17 @@ parser.add_argument('--alpha_lr_mult', type=float, default=50.0,
     help='learning rate multiplier for EMA alpha params (default 50x base LR)')
 parser.add_argument('--ema_backend', type=str, default='matrix')
 
-# ─── Cross-variable gate ────────────────────────────────────────
+# ─── Cross-variable gate (old, at output level) ──────────────
 parser.add_argument('--use_cross_variable', action='store_true', default=False)
+
+# ─── Cross-variable mixing (new, at input level) ─────────────
+parser.add_argument('--cv_mixing', type=str, default='none',
+    choices=['none', 'mlp', 'conv'],
+    help='cross-variable mixing mode: none (channel-independent), mlp (bottleneck), conv (local)')
+parser.add_argument('--cv_rank', type=int, default=32,
+    help='bottleneck rank for cross-variable mixing (MLP: C→r→C, Conv: 1→r→1)')
+parser.add_argument('--cv_kernel', type=int, default=7,
+    help='kernel size for conv cross-variable mixing')
 
 # ─── Ablation flags ────────────────────────────────────────────
 parser.add_argument('--no_multiscale', action='store_true', default=False,
