@@ -22,10 +22,12 @@ class MockConfig:
         defaults = dict(
             seq_len=96, pred_len=96, enc_in=7,
             patch_len=16, stride=8, padding_patch='end',
-            d_model=128, n_blocks=2, kernel_sizes=(3, 5, 7),
+            d_model=128, n_blocks=1, kernel_sizes=(3, 5, 7),
             patch_len_trend=32, agg_kernel=5,
-            alpha=0.3, ema_reg_lambda=0.01, ema_backend='matrix',
+            alpha=0.3, ema_reg_lambda=0.0, ema_backend='matrix',
             use_cross_variable=False, revin=1,
+            use_multiscale=True, use_causal=True,
+            use_gated_fusion=True, use_agg_conv=True,
         )
         defaults.update(kwargs)
         for k, v in defaults.items():
@@ -102,8 +104,8 @@ if __name__ == '__main__':
         test_config("Traffic-like (50 vars, cross-var)",
             seq_len=96, pred_len=96, enc_in=50, use_cross_variable=True)))
     results.append(("AdaPatch-Tiny",
-        test_config("AdaPatch-Tiny (d=64, nb=1)",
-            d_model=64, n_blocks=1, kernel_sizes=(3, 5))))
+        test_config("AdaPatch-Tiny (nb=0, k=(3,5))",
+            n_blocks=0, kernel_sizes=(3, 5))))
     results.append(("ILI (L=36, T=24)",
         test_config("ILI (7v, L=36, T=24)",
             seq_len=36, pred_len=24, enc_in=7,
