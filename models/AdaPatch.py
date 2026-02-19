@@ -61,6 +61,10 @@ class Model(nn.Module):
             kernel_sizes=kernel_sizes,
             agg_kernel=agg_kernel,
             use_cross_variable=use_cross_variable,
+            use_multiscale=getattr(configs, 'use_multiscale', True),
+            use_causal=getattr(configs, 'use_causal', True),
+            use_gated_fusion=getattr(configs, 'use_gated_fusion', True),
+            use_agg_conv=getattr(configs, 'use_agg_conv', True),
         )
     
     def forward(self, x):
