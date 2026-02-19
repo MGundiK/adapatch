@@ -56,6 +56,16 @@ parser.add_argument('--ema_backend', type=str, default='matrix')
 # ─── Cross-variable gate ────────────────────────────────────────
 parser.add_argument('--use_cross_variable', action='store_true', default=False)
 
+# ─── Ablation flags ────────────────────────────────────────────
+parser.add_argument('--no_multiscale', action='store_true', default=False,
+    help='ablate: disable multiscale depthwise conv in seasonal stream')
+parser.add_argument('--no_causal', action='store_true', default=False,
+    help='ablate: disable dilated causal conv in seasonal stream')
+parser.add_argument('--no_gated_fusion', action='store_true', default=False,
+    help='ablate: replace gated fusion with concat+linear')
+parser.add_argument('--no_agg_conv', action='store_true', default=False,
+    help='ablate: disable aggregate conv in trend stream')
+
 # ─── Optimization ───────────────────────────────────────────────
 parser.add_argument('--num_workers', type=int, default=10)
 parser.add_argument('--itr', type=int, default=1)
@@ -78,6 +88,12 @@ parser.add_argument('--devices', type=str, default='0,1,2,3')
 args = parser.parse_args()
 args.kernel_sizes = tuple(args.kernel_sizes)
 args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
+
+# Convert ablation flags: --no_X → use_X = False
+args.use_multiscale = not args.no_multiscale
+args.use_causal = not args.no_causal
+args.use_gated_fusion = not args.no_gated_fusion
+args.use_agg_conv = not args.no_agg_conv
 
 if args.use_gpu and args.use_multi_gpu:
     args.devices = args.devices.replace(' ', '')
