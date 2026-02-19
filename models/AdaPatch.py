@@ -35,7 +35,7 @@ class Model(nn.Module):
         
         # Learnable EMA decomposition
         alpha_init = getattr(configs, 'alpha', 0.3)
-        ema_reg = getattr(configs, 'ema_reg_lambda', 0.01)
+        ema_reg = getattr(configs, 'ema_reg_lambda', 0.0)  # default OFF — let alpha learn freely
         ema_backend = getattr(configs, 'ema_backend', 'matrix')
         self.decomp = LearnableEMA(
             num_features=c_in,
@@ -48,10 +48,8 @@ class Model(nn.Module):
         patch_len = getattr(configs, 'patch_len', 16)
         stride = getattr(configs, 'stride', 8)
         padding_patch = getattr(configs, 'padding_patch', 'end')
-        d_model = getattr(configs, 'd_model', 128)
-        n_blocks = getattr(configs, 'n_blocks', 2)
+        n_blocks = getattr(configs, 'n_blocks', 1)  # default 1 (lighter)
         kernel_sizes = getattr(configs, 'kernel_sizes', (3, 5, 7))
-        patch_len_trend = getattr(configs, 'patch_len_trend', 32)
         agg_kernel = getattr(configs, 'agg_kernel', 5)
         use_cross_variable = getattr(configs, 'use_cross_variable', False)
         
@@ -59,9 +57,8 @@ class Model(nn.Module):
             seq_len=seq_len, pred_len=pred_len,
             patch_len=patch_len, stride=stride,
             padding_patch=padding_patch,
-            d_model=d_model, n_blocks=n_blocks,
+            n_blocks=n_blocks,
             kernel_sizes=kernel_sizes,
-            patch_len_trend=patch_len_trend,
             agg_kernel=agg_kernel,
             use_cross_variable=use_cross_variable,
         )
