@@ -1,13 +1,11 @@
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-import time
 
 plt.switch_backend('agg')
 
 
 def adjust_learning_rate(optimizer, epoch, args):
-    # lr = args.learning_rate * (0.2 ** (epoch // 2))
     if args.lradj == 'type1':
         lr_adjust = {epoch: args.learning_rate * (0.5 ** ((epoch - 1) // 1))}
     elif args.lradj == 'type2':
@@ -17,30 +15,30 @@ def adjust_learning_rate(optimizer, epoch, args):
         }
     elif args.lradj == 'type3':
         lr_adjust = {epoch: args.learning_rate if epoch < 3 else args.learning_rate * (0.9 ** ((epoch - 3) // 1))}
-    
-    # Sigmoid learning rate decay
     elif args.lradj == 'sigmoid':
-        k = 0.5 # logistic growth rate
-        s = 10  # decreasing curve smoothing rate
-        w = 10  # warm-up coefficient
+        # Sigmoid learning rate schedule (xPatch innovation)
+        k = 0.5   # logistic growth rate
+        s = 10    # decreasing curve smoothing rate
+        w = 10    # warm-up coefficient
         lr_adjust = {epoch: args.learning_rate / (1 + np.exp(-k * (epoch - w))) - args.learning_rate / (1 + np.exp(-k/s * (epoch - w*s)))}
-    
     elif args.lradj == 'constant':
         lr_adjust = {epoch: args.learning_rate}
     elif args.lradj == '3':
-        lr_adjust = {epoch: args.learning_rate if epoch < 10 else args.learning_rate*0.1}
+        lr_adjust = {epoch: args.learning_rate if epoch < 10 else args.learning_rate * 0.1}
     elif args.lradj == '4':
-        lr_adjust = {epoch: args.learning_rate if epoch < 15 else args.learning_rate*0.1}
+        lr_adjust = {epoch: args.learning_rate if epoch < 15 else args.learning_rate * 0.1}
     elif args.lradj == '5':
-        lr_adjust = {epoch: args.learning_rate if epoch < 25 else args.learning_rate*0.1}
+        lr_adjust = {epoch: args.learning_rate if epoch < 25 else args.learning_rate * 0.1}
     elif args.lradj == '6':
-        lr_adjust = {epoch: args.learning_rate if epoch < 5 else args.learning_rate*0.1}  
- 
+        lr_adjust = {epoch: args.learning_rate if epoch < 5 else args.learning_rate * 0.1}
+
     if epoch in lr_adjust.keys():
-        lr = lr_adjust[epoch]
+        base_lr = lr_adjust[epoch]
         for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
-        print('Updating learning rate to {}'.format(lr))
+            # Each param group can have an 'lr_scale' factor (default 1.0)
+            scale = param_group.get('lr_scale', 1.0)
+            param_group['lr'] = base_lr * scale
+        print('Updating base learning rate to {}'.format(base_lr))
 
 
 class EarlyStopping:
@@ -50,7 +48,7 @@ class EarlyStopping:
         self.counter = 0
         self.best_score = None
         self.early_stop = False
-        self.val_loss_min = np.inf
+        self.val_loss_min = np.Inf
         self.delta = delta
 
     def __call__(self, val_loss, model, path):
@@ -95,12 +93,10 @@ class StandardScaler():
 
 
 def visual(true, preds=None, name='./pic/test.pdf'):
-    """
-    Results visualization
-    """
     plt.figure()
     plt.plot(true, label='GroundTruth', linewidth=2)
     if preds is not None:
         plt.plot(preds, label='Prediction', linewidth=2)
     plt.legend()
     plt.savefig(name, bbox_inches='tight')
+    plt.close()
