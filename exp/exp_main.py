@@ -40,7 +40,32 @@ class Exp_Main(Exp_Basic):
         return data_set, data_loader
 
     def _select_optimizer(self):
-        return optim.AdamW(self.model.parameters(), lr=self.args.learning_rate)
+        # Separate param groups: alpha_raw gets a much higher LR
+        # so the decomposition can actually adapt per-variable.
+        # Default base_lr=0.0005 → alpha gets 0.0005*50 = 0.025
+        alpha_lr_mult = getattr(self.args, 'alpha_lr_mult', 50)
+        
+        # Find alpha_raw parameters
+        alpha_params = []
+        other_params = []
+        for name, param in self.model.named_parameters():
+            if 'alpha_raw' in name:
+                alpha_params.append(param)
+            else:
+                other_params.append(param)
+        
+        param_groups = [
+            {'params': other_params, 'lr': self.args.learning_rate, 'lr_scale': 1.0},
+            {'params': alpha_params, 'lr': self.args.learning_rate * alpha_lr_mult,
+             'lr_scale': alpha_lr_mult, 'weight_decay': 0.0},
+        ]
+        
+        n_alpha = sum(p.numel() for p in alpha_params)
+        n_other = sum(p.numel() for p in other_params)
+        print(f"Optimizer: {n_other:,} params @ lr={self.args.learning_rate}, "
+              f"{n_alpha} alpha params @ lr={self.args.learning_rate * alpha_lr_mult}")
+        
+        return optim.AdamW(param_groups)
 
     def _select_criterion(self):
         return nn.MSELoss(), nn.L1Loss()
