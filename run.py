@@ -61,8 +61,8 @@ parser.add_argument('--no_multiscale', action='store_true', default=False,
     help='ablate: disable multiscale depthwise conv in seasonal stream')
 parser.add_argument('--no_causal', action='store_true', default=False,
     help='ablate: disable dilated causal conv in seasonal stream')
-parser.add_argument('--no_gated_fusion', action='store_true', default=False,
-    help='ablate: replace gated fusion with concat+linear')
+parser.add_argument('--no_gated_fusion', action='store_true', default=True,
+    help='ablate: replace gated fusion with concat+linear (default: ON, concat is better)')
 parser.add_argument('--no_agg_conv', action='store_true', default=False,
     help='ablate: disable aggregate conv in trend stream')
 
