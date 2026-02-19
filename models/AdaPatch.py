@@ -4,6 +4,7 @@ import torch.nn as nn
 from layers.learnable_ema import LearnableEMA
 from layers.network import AdaPatchNetwork
 from layers.revin import RevIN
+from layers.cross_variable import CrossVariableMixing
 
 
 class Model(nn.Module):
@@ -15,12 +16,13 @@ class Model(nn.Module):
         Input:  (Batch, Input_len, Channels)
         Output: (Batch, Pred_len, Channels)
     
-    Key innovations over GLCN and xPatch:
-      1. Learnable per-variable EMA decomposition (adaptive alpha)
-      2. Multiscale depthwise conv with non-linearity (GLCN multi-kernel + GELU)
-      3. Dilated causal conv for structured inter-patch communication
-      4. Gated fusion replacing concatenation + linear
-      5. Optional cross-variable gate for high-dimensional datasets
+    Architecture:
+        RevIN → [CrossVariableMixing] → LearnableEMA → SeasonalStream + TrendStream → Fusion → RevIN⁻¹
+    
+    Cross-variable mixing (optional, for high-dim datasets):
+        Inserted after RevIN, before EMA decomposition.
+        Each variable's representation is enriched with neighbor info
+        before the channel-independent processing begins.
     """
     def __init__(self, configs):
         super().__init__()
@@ -33,9 +35,18 @@ class Model(nn.Module):
         self.revin = getattr(configs, 'revin', 1)
         self.revin_layer = RevIN(c_in, affine=True, subtract_last=False)
         
+        # Cross-variable mixing (before decomposition)
+        cv_mode = getattr(configs, 'cv_mixing', 'none')
+        cv_rank = getattr(configs, 'cv_rank', 32)
+        cv_kernel = getattr(configs, 'cv_kernel', 7)
+        self.cv_mixing = CrossVariableMixing(
+            n_vars=c_in, seq_len=seq_len,
+            mode=cv_mode, rank=cv_rank, conv_kernel=cv_kernel
+        )
+        
         # Learnable EMA decomposition
         alpha_init = getattr(configs, 'alpha', 0.3)
-        ema_reg = getattr(configs, 'ema_reg_lambda', 0.0)  # default OFF — let alpha learn freely
+        ema_reg = getattr(configs, 'ema_reg_lambda', 0.0)
         ema_backend = getattr(configs, 'ema_backend', 'matrix')
         self.decomp = LearnableEMA(
             num_features=c_in,
@@ -48,7 +59,7 @@ class Model(nn.Module):
         patch_len = getattr(configs, 'patch_len', 16)
         stride = getattr(configs, 'stride', 8)
         padding_patch = getattr(configs, 'padding_patch', 'end')
-        n_blocks = getattr(configs, 'n_blocks', 1)  # default 1 (lighter)
+        n_blocks = getattr(configs, 'n_blocks', 1)
         kernel_sizes = getattr(configs, 'kernel_sizes', (3, 5, 7))
         agg_kernel = getattr(configs, 'agg_kernel', 5)
         use_cross_variable = getattr(configs, 'use_cross_variable', False)
@@ -63,7 +74,7 @@ class Model(nn.Module):
             use_cross_variable=use_cross_variable,
             use_multiscale=getattr(configs, 'use_multiscale', True),
             use_causal=getattr(configs, 'use_causal', True),
-            use_gated_fusion=getattr(configs, 'use_gated_fusion', True),
+            use_gated_fusion=getattr(configs, 'use_gated_fusion', False),
             use_agg_conv=getattr(configs, 'use_agg_conv', True),
         )
     
@@ -77,6 +88,10 @@ class Model(nn.Module):
         if self.revin:
             x = self.revin_layer(x, 'norm')
         
+        # Cross-variable mixing (enriches each variable with neighbor info)
+        x = self.cv_mixing(x)
+        
+        # Decompose and predict (channel-independent from here)
         seasonal, trend = self.decomp(x)
         out = self.net(seasonal, trend)
         
@@ -86,9 +101,7 @@ class Model(nn.Module):
         return out
     
     def get_ema_reg_loss(self):
-        """Return EMA alpha regularization loss to add to training loss."""
         return self.decomp.regularization_loss()
     
     def get_alpha_values(self):
-        """Return current learned alpha values for analysis."""
         return self.decomp.alpha.detach().cpu().numpy()
