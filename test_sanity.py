@@ -28,6 +28,7 @@ class MockConfig:
             use_cross_variable=False, revin=1,
             use_multiscale=True, use_causal=True,
             use_gated_fusion=False, use_agg_conv=True,
+            cv_mixing='none', cv_rank=32, cv_kernel=7,
         )
         defaults.update(kwargs)
         for k, v in defaults.items():
@@ -117,6 +118,20 @@ if __name__ == '__main__':
         test_config("ILI (7v, L=36, T=24)",
             seq_len=36, pred_len=24, enc_in=7,
             patch_len=8, stride=4, patch_len_trend=12)))
+    
+    # Cross-variable mixing tests
+    results.append(("Weather+MLP (21v, cv=mlp, r=16)",
+        test_config("Weather + MLP mixing",
+            seq_len=96, pred_len=96, enc_in=21,
+            cv_mixing='mlp', cv_rank=16)))
+    results.append(("Traffic-like+Conv (50v, cv=conv)",
+        test_config("Traffic-like + Conv mixing",
+            seq_len=96, pred_len=96, enc_in=50,
+            cv_mixing='conv', cv_rank=8, cv_kernel=7)))
+    results.append(("Traffic-like+MLP (50v, cv=mlp, r=32)",
+        test_config("Traffic-like + MLP mixing",
+            seq_len=96, pred_len=96, enc_in=50,
+            cv_mixing='mlp', cv_rank=32)))
 
     test_gradient_flow()
     test_gate_init()
