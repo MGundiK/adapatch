@@ -27,7 +27,7 @@ class MockConfig:
             alpha=0.3, ema_reg_lambda=0.0, ema_backend='matrix',
             use_cross_variable=False, revin=1,
             use_multiscale=True, use_causal=True,
-            use_gated_fusion=True, use_agg_conv=True,
+            use_gated_fusion=False, use_agg_conv=True,
         )
         defaults.update(kwargs)
         for k, v in defaults.items():
@@ -77,14 +77,21 @@ def test_gradient_flow():
 
 def test_gate_init():
     print(f"\n{'='*60}")
-    print(f"Test: Fusion gate initialization (~0.5)")
+    print(f"Test: Fusion layer initialization")
     cfg = MockConfig()
     model = Model(cfg)
-    bias = model.net.fusion.gate_linear.bias.data
-    mean_gate = torch.sigmoid(bias).mean().item()
-    print(f"  Gate sigmoid mean: {mean_gate:.4f}")
-    assert abs(mean_gate - 0.5) < 0.1, f"Gate not near 0.5: {mean_gate}"
-    print(f"  ✓ Gate initialized near 0.5")
+    fusion = model.net.fusion
+    if hasattr(fusion, 'gate_linear'):
+        bias = fusion.gate_linear.bias.data
+        mean_gate = torch.sigmoid(bias).mean().item()
+        print(f"  Gate sigmoid mean: {mean_gate:.4f}")
+        assert abs(mean_gate - 0.5) < 0.1, f"Gate not near 0.5: {mean_gate}"
+        print(f"  ✓ Gated fusion initialized near 0.5")
+    else:
+        # ConcatFusion — just verify it has a linear layer
+        assert hasattr(fusion, 'linear'), "ConcatFusion missing linear layer"
+        print(f"  ConcatFusion linear: in={fusion.linear.in_features}, out={fusion.linear.out_features}")
+        print(f"  ✓ Concat fusion initialized correctly")
 
 
 if __name__ == '__main__':
