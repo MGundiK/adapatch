@@ -37,7 +37,7 @@ run_traffic() {
             --enc_in 862 \
             --des 'CVAblation' \
             --itr 1 \
-            --batch_size 96 \
+            --batch_size 192 \
             --learning_rate 0.005 \
             --lradj 'sigmoid' \
             --alpha 0.3 \
@@ -65,7 +65,7 @@ run_electricity() {
             --enc_in 321 \
             --des 'CVAblation' \
             --itr 1 \
-            --batch_size 256 \
+            --batch_size 512 \
             --learning_rate 0.005 \
             --lradj 'sigmoid' \
             --alpha 0.3 \
