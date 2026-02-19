@@ -51,6 +51,8 @@ parser.add_argument('--alpha', type=float, default=0.3)
 parser.add_argument('--ema_reg_lambda', type=float, default=0.0)
 parser.add_argument('--alpha_lr_mult', type=float, default=50.0,
     help='learning rate multiplier for EMA alpha params (default 50x base LR)')
+parser.add_argument('--alpha_lr_max', type=float, default=0.025,
+    help='absolute cap on alpha learning rate (prevents NaN with high base_lr)')
 parser.add_argument('--ema_backend', type=str, default='matrix')
 
 # ─── Cross-variable gate (old, at output level) ──────────────
