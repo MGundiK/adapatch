@@ -39,7 +39,7 @@ parser.add_argument('--patch_len', type=int, default=16)
 parser.add_argument('--stride', type=int, default=8)
 parser.add_argument('--padding_patch', default='end')
 parser.add_argument('--d_model', type=int, default=128)
-parser.add_argument('--n_blocks', type=int, default=2)
+parser.add_argument('--n_blocks', type=int, default=1)
 parser.add_argument('--kernel_sizes', type=int, nargs='+', default=[3, 5, 7])
 
 # ─── Trend stream (linear) ──────────────────────────────────────
@@ -48,7 +48,9 @@ parser.add_argument('--agg_kernel', type=int, default=5)
 
 # ─── Learnable EMA decomposition ────────────────────────────────
 parser.add_argument('--alpha', type=float, default=0.3)
-parser.add_argument('--ema_reg_lambda', type=float, default=0.01)
+parser.add_argument('--ema_reg_lambda', type=float, default=0.0)
+parser.add_argument('--alpha_lr_mult', type=float, default=50.0,
+    help='learning rate multiplier for EMA alpha params (default 50x base LR)')
 parser.add_argument('--ema_backend', type=str, default='matrix')
 
 # ─── Cross-variable gate ────────────────────────────────────────
