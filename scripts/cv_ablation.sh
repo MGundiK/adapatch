@@ -34,7 +34,7 @@ run_traffic() {
             --enc_in 862 \
             --des 'CVv2' \
             --itr 1 \
-            --batch_size 192 \
+            --batch_size 96 \
             --learning_rate 0.005 \
             --lradj 'sigmoid' \
             --alpha 0.3 \
