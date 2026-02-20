@@ -4,7 +4,6 @@ import torch.nn as nn
 from layers.learnable_ema import LearnableEMA
 from layers.network import AdaPatchNetwork
 from layers.revin import RevIN
-from layers.cross_variable import CrossVariableMixing
 
 
 class Model(nn.Module):
@@ -12,17 +11,13 @@ class Model(nn.Module):
     AdaPatch: Adaptive Decomposition with Structured Patch Communication
     for Long-Term Time Series Forecasting.
     
-    Drop-in replacement for xPatch — same input/output format:
-        Input:  (Batch, Input_len, Channels)
-        Output: (Batch, Pred_len, Channels)
-    
     Architecture:
-        RevIN → [CrossVariableMixing] → LearnableEMA → SeasonalStream + TrendStream → Fusion → RevIN⁻¹
+        RevIN → LearnableEMA → SeasonalStream(+CV mixing) + TrendStream(+CV mixing) → Fusion → RevIN⁻¹
     
-    Cross-variable mixing (optional, for high-dim datasets):
-        Inserted after RevIN, before EMA decomposition.
-        Each variable's representation is enriched with neighbor info
-        before the channel-independent processing begins.
+    Cross-variable mixing (cv_mode='mlp' or 'conv') operates on LEARNED
+    REPRESENTATIONS inside both streams — after patch embedding (seasonal)
+    and after first FC layer (trend). This lets variables share information
+    based on their temporal patterns, not raw values.
     """
     def __init__(self, configs):
         super().__init__()
@@ -35,15 +30,6 @@ class Model(nn.Module):
         self.revin = getattr(configs, 'revin', 1)
         self.revin_layer = RevIN(c_in, affine=True, subtract_last=False)
         
-        # Cross-variable mixing (before decomposition)
-        cv_mode = getattr(configs, 'cv_mixing', 'none')
-        cv_rank = getattr(configs, 'cv_rank', 32)
-        cv_kernel = getattr(configs, 'cv_kernel', 7)
-        self.cv_mixing = CrossVariableMixing(
-            n_vars=c_in, seq_len=seq_len,
-            mode=cv_mode, rank=cv_rank, conv_kernel=cv_kernel
-        )
-        
         # Learnable EMA decomposition
         alpha_init = getattr(configs, 'alpha', 0.3)
         ema_reg = getattr(configs, 'ema_reg_lambda', 0.0)
@@ -55,14 +41,13 @@ class Model(nn.Module):
             reg_lambda=ema_reg
         )
         
-        # Network
+        # Network (cross-variable mixing happens inside streams)
         patch_len = getattr(configs, 'patch_len', 16)
         stride = getattr(configs, 'stride', 8)
         padding_patch = getattr(configs, 'padding_patch', 'end')
         n_blocks = getattr(configs, 'n_blocks', 1)
         kernel_sizes = getattr(configs, 'kernel_sizes', (3, 5, 7))
         agg_kernel = getattr(configs, 'agg_kernel', 5)
-        use_cross_variable = getattr(configs, 'use_cross_variable', False)
         
         self.net = AdaPatchNetwork(
             seq_len=seq_len, pred_len=pred_len,
@@ -71,27 +56,21 @@ class Model(nn.Module):
             n_blocks=n_blocks,
             kernel_sizes=kernel_sizes,
             agg_kernel=agg_kernel,
-            use_cross_variable=use_cross_variable,
             use_multiscale=getattr(configs, 'use_multiscale', True),
             use_causal=getattr(configs, 'use_causal', True),
             use_gated_fusion=getattr(configs, 'use_gated_fusion', False),
             use_agg_conv=getattr(configs, 'use_agg_conv', True),
+            # Cross-variable mixing (inside streams, on representations)
+            n_vars=c_in,
+            cv_mode=getattr(configs, 'cv_mixing', 'none'),
+            cv_rank=getattr(configs, 'cv_rank', 32),
+            cv_kernel=getattr(configs, 'cv_kernel', 7),
         )
     
     def forward(self, x):
-        """
-        Args:
-            x: (Batch, Input_len, Channels)
-        Returns:
-            (Batch, Pred_len, Channels)
-        """
         if self.revin:
             x = self.revin_layer(x, 'norm')
         
-        # Cross-variable mixing (enriches each variable with neighbor info)
-        x = self.cv_mixing(x)
-        
-        # Decompose and predict (channel-independent from here)
         seasonal, trend = self.decomp(x)
         out = self.net(seasonal, trend)
         
