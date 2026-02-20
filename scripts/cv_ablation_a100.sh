@@ -19,7 +19,7 @@
 # with CV mixing buffers (B,862,192): ~0.7GB extra — fits A100 80GB
 # ═══════════════════════════════════════════════════════════════
 
-set -e  # Exit on error
+# Don't use set -e — let the script continue if one run fails
 
 # ─── Setup ──────────────────────────────────────────────────
 if [ ! -d "./dataset" ]; then
@@ -109,9 +109,12 @@ run_weather() {
 # ═══════════════════════════════════════════════════════════════
 # ETTh1 (7 vars) — control — A100: bs=4096, lr=0.0007
 # ═══════════════════════════════════════════════════════════════
+# NOTE: ETTh1 val set is only 2785 samples.
+# batch_size MUST be <= 2785 or drop_last=True gives 0 val batches → NaN.
+# Use original reference settings (no scaling needed for this small dataset).
 ETTH1_ARGS="--root_path ./dataset/ --data_path ETTh1.csv \
             --data ETTh1 --enc_in 7 \
-            --batch_size 4096 --learning_rate 0.0007 --num_workers 4"
+            --batch_size 2048 --learning_rate 0.0005 --num_workers 4"
 
 run_etth1() {
     local tag=$1; shift
