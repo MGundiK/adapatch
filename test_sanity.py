@@ -108,9 +108,6 @@ if __name__ == '__main__':
         test_config("ETTh1 (L=336, T=96)", seq_len=336, pred_len=96, enc_in=7)))
     results.append(("Weather (21v, L=96, T=720)",
         test_config("Weather (L=96, T=720)", seq_len=96, pred_len=720, enc_in=21)))
-    results.append(("Traffic-like (50v, cross-var)",
-        test_config("Traffic-like (50 vars, cross-var)",
-            seq_len=96, pred_len=96, enc_in=50, use_cross_variable=True)))
     results.append(("AdaPatch-Tiny",
         test_config("AdaPatch-Tiny (nb=0, k=(3,5))",
             n_blocks=0, kernel_sizes=(3, 5))))
@@ -119,18 +116,22 @@ if __name__ == '__main__':
             seq_len=36, pred_len=24, enc_in=7,
             patch_len=8, stride=4, patch_len_trend=12)))
     
-    # Cross-variable mixing tests
+    # Cross-variable mixing on learned representations
     results.append(("Weather+MLP (21v, cv=mlp, r=16)",
-        test_config("Weather + MLP mixing",
+        test_config("Weather + MLP mixing on representations",
             seq_len=96, pred_len=96, enc_in=21,
             cv_mixing='mlp', cv_rank=16)))
     results.append(("Traffic-like+Conv (50v, cv=conv)",
-        test_config("Traffic-like + Conv mixing",
+        test_config("Traffic-like + Conv mixing on representations",
             seq_len=96, pred_len=96, enc_in=50,
             cv_mixing='conv', cv_rank=8, cv_kernel=7)))
     results.append(("Traffic-like+MLP (50v, cv=mlp, r=32)",
-        test_config("Traffic-like + MLP mixing",
+        test_config("Traffic-like + MLP mixing on representations",
             seq_len=96, pred_len=96, enc_in=50,
+            cv_mixing='mlp', cv_rank=32)))
+    results.append(("Traffic+MLP T=336 (50v)",
+        test_config("Traffic-like + MLP mixing T=336",
+            seq_len=96, pred_len=336, enc_in=50,
             cv_mixing='mlp', cv_rank=32)))
 
     test_gradient_flow()
