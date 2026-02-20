@@ -131,9 +131,9 @@ echo ""
 
 # ── Phase 1: Baseline (no mixing) ──────────────────────────
 echo "━━━ [1/3] Baseline (no mixing) ━━━"
-run_traffic     "none"
-run_electricity "none"
-run_weather     "none"
+#run_traffic     "none"
+#run_electricity "none"
+#run_weather     "none"
 run_etth1       "none"
 echo ""
 
