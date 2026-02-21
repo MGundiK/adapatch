@@ -65,6 +65,8 @@ class Model(nn.Module):
             cv_mode=getattr(configs, 'cv_mixing', 'none'),
             cv_rank=getattr(configs, 'cv_rank', 32),
             cv_kernel=getattr(configs, 'cv_kernel', 7),
+            cv_depth=getattr(configs, 'cv_depth', 1),
+            cv_post_pw=getattr(configs, 'cv_post_pw', False),
         )
     
     def forward(self, x):
