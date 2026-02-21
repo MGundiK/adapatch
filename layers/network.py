@@ -37,7 +37,8 @@ class SeasonalStream(nn.Module):
     def __init__(self, seq_len, pred_len, patch_len=16, stride=8,
                  n_blocks=1, kernel_sizes=(3, 5, 7), padding_patch='end',
                  use_multiscale=True, use_causal=True,
-                 n_vars=1, cv_mode='none', cv_rank=32, cv_kernel=7):
+                 n_vars=1, cv_mode='none', cv_rank=32, cv_kernel=7,
+                 cv_depth=1, cv_post_pw=False):
         super().__init__()
         self.patch_len = patch_len
         self.stride = stride
@@ -80,10 +81,25 @@ class SeasonalStream(nn.Module):
             # Mixing operates on flattened (N_p * P) features per variable
             self.cv_mixer = CrossVariableMixing(
                 n_vars=n_vars, seq_len=self.patch_num * patch_len,
-                mode=cv_mode, rank=cv_rank, conv_kernel=cv_kernel
+                mode=cv_mode, rank=cv_rank, conv_kernel=cv_kernel,
+                depth=cv_depth
             )
         else:
             self.cv_mixer = None
+        
+        # ── SECOND MIXER after pointwise conv (optional) ─────────
+        # After pointwise mixes across patches, the features capture
+        # both local (depthwise) and cross-patch (pointwise) info.
+        # A second mixing layer here sees even richer representations.
+        self.cv_post_pw = cv_post_pw
+        if cv_mode != 'none' and cv_post_pw:
+            self.cv_mixer_post = CrossVariableMixing(
+                n_vars=n_vars, seq_len=self.patch_num * patch_len,
+                mode=cv_mode, rank=cv_rank, conv_kernel=cv_kernel,
+                depth=cv_depth
+            )
+        else:
+            self.cv_mixer_post = None
         
         # [ABLATABLE] Multiscale depthwise conv along N_p
         if use_multiscale:
@@ -161,6 +177,17 @@ class SeasonalStream(nn.Module):
         s = self.pw_gelu(self.pointwise(s))
         s = self.pw_bn(s)
         
+        # ── POST-POINTWISE CROSS-VARIABLE MIXING ─────────────────
+        # After pointwise has mixed across patches, features are even
+        # richer — each variable now has cross-patch context too.
+        if self.cv_mixer_post is not None and B is not None:
+            s_flat = s.reshape(B, C, -1)        # (B, C, N_p*P)
+            s_flat = s_flat.transpose(1, 2)      # (B, N_p*P, C)
+            s_flat = self.cv_mixer_post(s_flat)   # mix across C
+            s_flat = s_flat.transpose(1, 2)      # (B, C, N_p*P)
+            s = s_flat.reshape(B * C, self.patch_num, self.patch_len)
+        # ──────────────────────────────────────────────────────────
+        
         # Dilated causal
         for block in self.causal_blocks:
             s = block(s)
@@ -180,7 +207,8 @@ class TrendStream(nn.Module):
     representations, not raw values.
     """
     def __init__(self, seq_len, pred_len, agg_kernel=5, use_agg_conv=True,
-                 n_vars=1, cv_mode='none', cv_rank=32, cv_kernel=7):
+                 n_vars=1, cv_mode='none', cv_rank=32, cv_kernel=7,
+                 cv_depth=1):
         super().__init__()
         self.pred_len = pred_len
         self.use_agg_conv = use_agg_conv
@@ -197,7 +225,8 @@ class TrendStream(nn.Module):
         if cv_mode != 'none':
             self.cv_mixer = CrossVariableMixing(
                 n_vars=n_vars, seq_len=pred_len * 2,
-                mode=cv_mode, rank=cv_rank, conv_kernel=cv_kernel
+                mode=cv_mode, rank=cv_rank, conv_kernel=cv_kernel,
+                depth=cv_depth
             )
         else:
             self.cv_mixer = None
@@ -277,6 +306,7 @@ class AdaPatchNetwork(nn.Module):
                  use_multiscale=True, use_causal=True,
                  use_gated_fusion=True, use_agg_conv=True,
                  n_vars=1, cv_mode='none', cv_rank=32, cv_kernel=7,
+                 cv_depth=1, cv_post_pw=False,
                  d_model=None):
         super().__init__()
         self.pred_len = pred_len
@@ -288,12 +318,14 @@ class AdaPatchNetwork(nn.Module):
             use_causal=use_causal,
             n_vars=n_vars, cv_mode=cv_mode,
             cv_rank=cv_rank, cv_kernel=cv_kernel,
+            cv_depth=cv_depth, cv_post_pw=cv_post_pw,
         )
         self.trend_stream = TrendStream(
             seq_len, pred_len, agg_kernel,
             use_agg_conv=use_agg_conv,
             n_vars=n_vars, cv_mode=cv_mode,
             cv_rank=cv_rank, cv_kernel=cv_kernel,
+            cv_depth=cv_depth,
         )
         
         if use_gated_fusion:
