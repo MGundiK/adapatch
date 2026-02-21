@@ -10,22 +10,32 @@ class CrossVariableMixingMLP(nn.Module):
     At each timestep, mixes information across all C variables
     through a low-rank bottleneck: C → r → C.
     
-    Params: 2 * C * r + r + C ≈ 2*C*r
-    Traffic (C=862, r=32): ~55K params
-    Weather (C=21, r=16):  ~700 params
+    Supports stacking multiple layers (depth > 1) for richer
+    cross-variable modeling. Each layer has its own weights
+    and LayerNorm, with residual connections.
+    
+    Params per layer: 2 * C * r + r + C ≈ 2*C*r
+    Traffic (C=862, r=32, depth=1): ~55K params
+    Traffic (C=862, r=64, depth=2): ~222K params
+    Weather (C=21, r=16, depth=1):  ~700 params
     """
-    def __init__(self, n_vars, rank=32):
+    def __init__(self, n_vars, rank=32, depth=1):
         super().__init__()
-        self.mix = nn.Sequential(
-            nn.Linear(n_vars, rank),
-            nn.GELU(),
-            nn.Linear(rank, n_vars),
-        )
-        self.norm = nn.LayerNorm(n_vars)
+        self.layers = nn.ModuleList()
+        self.norms = nn.ModuleList()
+        for _ in range(depth):
+            self.layers.append(nn.Sequential(
+                nn.Linear(n_vars, rank),
+                nn.GELU(),
+                nn.Linear(rank, n_vars),
+            ))
+            self.norms.append(nn.LayerNorm(n_vars))
     
     def forward(self, x):
         """x: (B, L, C) → (B, L, C)"""
-        return self.norm(x + self.mix(x))
+        for mix, norm in zip(self.layers, self.norms):
+            x = norm(x + mix(x))
+        return x
 
 
 class CrossVariableMixingConv(nn.Module):
@@ -69,13 +79,15 @@ class CrossVariableMixing(nn.Module):
       'none' - no cross-variable mixing (channel-independent baseline)
       'mlp'  - bottleneck MLP mixing (C→r→C at each timestep)
       'conv' - local conv mixing (shared kernel across C dimension)
+    
+    depth: number of stacked mixing layers (mlp only)
     """
-    def __init__(self, n_vars, seq_len, mode='none', rank=32, conv_kernel=7):
+    def __init__(self, n_vars, seq_len, mode='none', rank=32, conv_kernel=7, depth=1):
         super().__init__()
         self.mode = mode
         
         if mode == 'mlp':
-            self.mixer = CrossVariableMixingMLP(n_vars, rank=rank)
+            self.mixer = CrossVariableMixingMLP(n_vars, rank=rank, depth=depth)
         elif mode == 'conv':
             self.mixer = CrossVariableMixingConv(
                 n_vars, rank=min(rank, 8), conv_kernel=conv_kernel
