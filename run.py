@@ -66,6 +66,10 @@ parser.add_argument('--cv_rank', type=int, default=32,
     help='bottleneck rank for cross-variable mixing (MLP: C→r→C, Conv: 1→r→1)')
 parser.add_argument('--cv_kernel', type=int, default=7,
     help='kernel size for conv cross-variable mixing')
+parser.add_argument('--cv_depth', type=int, default=1,
+    help='number of stacked cross-variable mixing layers')
+parser.add_argument('--cv_post_pw', action='store_true', default=False,
+    help='add second cross-variable mixer after pointwise conv')
 
 # ─── Ablation flags ────────────────────────────────────────────
 parser.add_argument('--no_multiscale', action='store_true', default=False,
