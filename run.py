@@ -60,8 +60,8 @@ parser.add_argument('--use_cross_variable', action='store_true', default=False)
 
 # ─── Cross-variable mixing (new, at input level) ─────────────
 parser.add_argument('--cv_mixing', type=str, default='none',
-    choices=['none', 'mlp', 'conv'],
-    help='cross-variable mixing mode: none (channel-independent), mlp (bottleneck), conv (local)')
+    choices=['none', 'mlp', 'conv', 'hydra', 'hydra_gated'],
+    help='cross-variable mixing mode: none, mlp, conv, hydra, hydra_gated')
 parser.add_argument('--cv_rank', type=int, default=32,
     help='bottleneck rank for cross-variable mixing (MLP: C→r→C, Conv: 1→r→1)')
 parser.add_argument('--cv_kernel', type=int, default=7,
@@ -70,6 +70,12 @@ parser.add_argument('--cv_depth', type=int, default=1,
     help='number of stacked cross-variable mixing layers')
 parser.add_argument('--cv_post_pw', action='store_true', default=False,
     help='add second cross-variable mixer after pointwise conv')
+parser.add_argument('--cv_post_fusion', action='store_true', default=False,
+    help='enable post-fusion cross-variable mixing (after trend+seasonal combine)')
+parser.add_argument('--cv_post_fusion_mode', type=str, default=None,
+    help='post-fusion mode: hydra_gated, hydra, mlp (default: same as cv_mixing)')
+parser.add_argument('--cv_post_fusion_rank', type=int, default=None,
+    help='post-fusion bottleneck rank (default: same as cv_rank)')
 
 # ─── Ablation flags ────────────────────────────────────────────
 parser.add_argument('--no_multiscale', action='store_true', default=False,
