@@ -123,7 +123,7 @@ class CrossVariableMixingHydra(nn.Module):
                 nn.Sigmoid()
             )
 
-        self.norm = nn.LayerNorm(seq_len)
+        self.norm = nn.LayerNorm(n_vars)
         self.alpha = nn.Parameter(torch.tensor(0.1))
 
     def forward(self, x):
