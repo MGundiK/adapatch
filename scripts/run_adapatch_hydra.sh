@@ -25,7 +25,7 @@ DS="Electricity"
 ELEC="--is_training 1 --root_path ./dataset/ --data_path electricity.csv \
   --data custom --features M --enc_in 321 --seq_len 96 --label_len 48 \
   --patch_len 16 --stride 8 --padding_patch end \
-  --ma_type ema --alpha 0.3 \
+  --alpha 0.3 \
   --batch_size 256 --learning_rate 0.005 --lradj sigmoid \
   --train_epochs 100 --patience 10 --revin 1 --use_amp"
 
