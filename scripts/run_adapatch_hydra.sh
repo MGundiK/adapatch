@@ -84,7 +84,7 @@ DS="Traffic"
 TRAF="--is_training 1 --root_path ./dataset/ --data_path traffic.csv \
   --data custom --features M --enc_in 862 --seq_len 96 --label_len 48 \
   --patch_len 16 --stride 8 --padding_patch end \
-  --ma_type ema --alpha 0.3 \
+  --alpha 0.3 \
   --batch_size 96 --learning_rate 0.005 --lradj sigmoid \
   --train_epochs 100 --patience 10 --revin 1 --use_amp"
 
@@ -143,7 +143,7 @@ DS="Solar"
 SOLAR="--is_training 1 --root_path ./dataset/ --data_path solar.txt \
   --data Solar --features M --enc_in 137 --seq_len 96 --label_len 48 \
   --patch_len 16 --stride 8 --padding_patch end \
-  --ma_type ema --alpha 0.3 \
+  --alpha 0.3 \
   --batch_size 512 --learning_rate 0.005 --lradj sigmoid \
   --train_epochs 100 --patience 10 --revin 1 --use_amp"
 
@@ -194,7 +194,7 @@ DS="Weather"
 WEATHER="--is_training 1 --root_path ./dataset/ --data_path weather.csv \
   --data custom --features M --enc_in 21 --seq_len 96 --label_len 48 \
   --patch_len 16 --stride 8 --padding_patch end \
-  --ma_type ema --alpha 0.3 \
+  --alpha 0.3 \
   --batch_size 2048 --learning_rate 0.0005 --lradj sigmoid \
   --train_epochs 100 --patience 10 --revin 1 --use_amp"
 
